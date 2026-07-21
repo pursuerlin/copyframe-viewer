@@ -1,0 +1,63 @@
+name: Release Copyframe Viewer
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to create or update (for example v0.1.2)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  viewer-macos:
+    name: Viewer (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npm run viewer:pack:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: viewer-macos
+          path: release/viewer/*-mac.zip
+          if-no-files-found: error
+
+  viewer-windows:
+    name: Viewer (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npm run viewer:pack:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: viewer-windows
+          path: release/viewer/*-win.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish Viewer assets
+    needs: [viewer-macos, viewer-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: release-assets/*

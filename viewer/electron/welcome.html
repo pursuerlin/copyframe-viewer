@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'" />
+    <title>Copyframe Viewer</title>
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body>
+    <main class="welcome-shell">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Copyframe Viewer</span></div>
+      <section class="welcome-card" aria-labelledby="welcome-title">
+        <span class="eyebrow">离线网页查看器</span>
+        <h1 id="welcome-title">无需终端，直接打开<br />完整离线网页</h1>
+        <p>选择 Copyframe 导出 ZIP 解压后的文件夹，Viewer 会只在你的电脑上启动一个临时本地地址，让交互包、媒体和同源 iframe 都能正常加载。</p>
+        <button id="open-archive" type="button">打开离线网页</button>
+        <p class="error" id="error" role="alert" hidden></p>
+        <ol>
+          <li>解压 Copyframe 下载的 ZIP</li>
+          <li>点击上方按钮，选择包含 <code>index.html</code> 的文件夹</li>
+          <li>浏览、缩放或使用离线网页；关闭 Viewer 即自动停止</li>
+        </ol>
+      </section>
+      <p class="footnote">静态保真包仍可以直接双击 <code>index.html</code>；“尽量保留交互”和“完整封存”建议始终通过 Viewer 打开。</p>
+    </main>
+    <script src="welcome.js"></script>
+  </body>
+</html>

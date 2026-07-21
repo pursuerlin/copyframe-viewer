@@ -1,0 +1,18 @@
+{
+  "name": "copyframe-viewer",
+  "version": "0.1.2",
+  "description": "Portable local Viewer for Copyframe offline webpages.",
+  "author": "Copyframe",
+  "type": "module",
+  "main": "viewer/electron/main.mjs",
+  "scripts": {
+    "viewer:dev": "electron viewer/electron/main.mjs",
+    "viewer:pack": "electron-builder --config viewer/electron-builder.yml --publish never",
+    "viewer:pack:mac": "npm run viewer:pack -- --mac zip --arm64 --x64",
+    "viewer:pack:win": "npm run viewer:pack -- --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "37.10.3",
+    "electron-builder": "26.15.3"
+  }
+}

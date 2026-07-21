@@ -1,0 +1,187 @@
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell, session } from 'electron';
+import { existsSync } from 'node:fs';
+import { realpath, stat } from 'node:fs/promises';
+import { basename, dirname, relative, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { closeArchiveServer, createArchiveServer } from '../server.mjs';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const welcomeUrl = pathToFileURL(resolve(here, 'welcome.html')).href;
+let mainWindow;
+let archive;
+let pendingOpenPath = firstPathArgument(process.argv);
+
+app.setName('Copyframe Viewer');
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  if (app.isReady()) void openArchive(filePath);
+  else pendingOpenPath = filePath;
+});
+
+app.whenReady().then(async () => {
+  hardenElectronSession();
+  createMainWindow();
+  buildMenu();
+  if (pendingOpenPath) await openArchive(pendingOpenPath);
+  else await showWelcome();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+  });
+}).catch((error) => {
+  dialog.showErrorBox('Copyframe Viewer 无法启动', messageOf(error));
+  app.quit();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  if (archive?.server) void closeArchiveServer(archive.server).catch(() => {});
+});
+
+function createMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
+  mainWindow = new BrowserWindow({
+    width: 1220,
+    height: 820,
+    minWidth: 860,
+    minHeight: 600,
+    show: false,
+    title: 'Copyframe Viewer',
+    backgroundColor: '#f7f8fc',
+    webPreferences: {
+      preload: resolve(here, 'preload.mjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true
+    }
+  });
+  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isViewerUrl(url)) return;
+    event.preventDefault();
+    if (/^https?:/i.test(url)) void shell.openExternal(url);
+  });
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
+  mainWindow.on('closed', () => { mainWindow = undefined; });
+  return mainWindow;
+}
+
+function hardenElectronSession() {
+  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
+}
+
+function buildMenu() {
+  const template = [
+    {
+      label: '文件',
+      submenu: [
+        { label: '打开离线网页…', accelerator: 'CommandOrControl+O', click: () => void chooseArchive() },
+        { label: '回到开始页', accelerator: 'CommandOrControl+Shift+O', click: () => void showWelcome() },
+        { type: 'separator' },
+        { role: 'close', label: '关闭窗口' }
+      ]
+    },
+    {
+      label: '查看',
+      submenu: [
+        { role: 'reload', label: '重新加载' },
+        { role: 'toggleDevTools', label: '开发者工具' },
+        { type: 'separator' },
+        { role: 'resetZoom', label: '实际大小' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' }
+      ]
+    },
+    {
+      label: '帮助',
+      submenu: [{ label: 'Copyframe Viewer 使用说明', click: () => void showWelcome() }]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+async function chooseArchive() {
+  const result = await dialog.showOpenDialog(createMainWindow(), {
+    title: '选择解压后的离线网页文件夹或 index.html',
+    buttonLabel: '打开离线网页',
+    properties: ['openFile', 'openDirectory'],
+    filters: [{ name: '网页文件', extensions: ['html', 'htm'] }]
+  });
+  if (!result.canceled && result.filePaths[0]) await openArchive(result.filePaths[0]);
+}
+
+async function openArchive(input) {
+  try {
+    const selected = await resolveArchiveSelection(input);
+    await replaceArchiveServer(selected.root);
+    const page = relative(archive.root, selected.page).replaceAll('\\', '/');
+    await createMainWindow().loadURL(new URL(page, archive.url).href);
+    createMainWindow().setTitle(`Copyframe Viewer — ${basename(selected.page)}`);
+  } catch (error) {
+    await showWelcome(messageOf(error));
+  }
+}
+
+async function replaceArchiveServer(root) {
+  if (archive?.root === root && archive.server?.listening) return;
+  const nextArchive = await createArchiveServer(root);
+  const previous = archive;
+  archive = nextArchive;
+  if (previous?.server) await closeArchiveServer(previous.server).catch(() => {});
+}
+
+async function resolveArchiveSelection(input) {
+  const selected = resolve(String(input || ''));
+  if (!existsSync(selected)) throw new Error('找不到所选的离线网页。请先解压 Copyframe 下载的 ZIP。');
+  const info = await stat(selected);
+  if (info.isDirectory()) {
+    const index = resolve(selected, 'index.html');
+    if (!existsSync(index) || !(await stat(index)).isFile()) throw new Error('这个文件夹里没有 index.html。请选择解压后的离线网页文件夹。');
+    return { root: await realpath(selected), page: await realpath(index) };
+  }
+  if (!info.isFile() || !/\.html?$/i.test(selected)) throw new Error('请选择离线网页的 index.html，或它所在的文件夹。');
+  return { root: await realpath(dirname(selected)), page: await realpath(selected) };
+}
+
+async function showWelcome(error = '') {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  await mainWindow.loadURL(`${welcomeUrl}${error ? `?error=${encodeURIComponent(error)}` : ''}`);
+  mainWindow.setTitle('Copyframe Viewer');
+}
+
+function isViewerUrl(url) {
+  if (url.startsWith(welcomeUrl)) return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === new URL(archive?.url || 'http://127.0.0.1:0/').origin;
+  } catch { return false; }
+}
+
+function firstPathArgument(argumentsList) {
+  return argumentsList.slice(1).find((value) => !value.startsWith('-') && existsSync(value)) || '';
+}
+
+function messageOf(error) {
+  return error instanceof Error ? error.message : String(error || '无法打开离线网页。');
+}
+
+ipcMain.handle('copyframe-viewer:choose-archive', async (event) => {
+  if (!event.senderFrame?.url?.startsWith(welcomeUrl)) return { ok: false, error: '此操作只能在 Copyframe Viewer 开始页使用。' };
+  const result = await dialog.showOpenDialog(createMainWindow(), {
+    title: '选择解压后的离线网页文件夹或 index.html',
+    buttonLabel: '打开离线网页',
+    properties: ['openFile', 'openDirectory'],
+    filters: [{ name: '网页文件', extensions: ['html', 'htm'] }]
+  });
+  if (result.canceled || !result.filePaths[0]) return { ok: false, cancelled: true };
+  await openArchive(result.filePaths[0]);
+  return { ok: true };
+});

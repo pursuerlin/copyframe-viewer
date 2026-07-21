@@ -1,0 +1,25 @@
+appId: com.copyframe.viewer
+productName: Copyframe Viewer
+copyright: Copyright © 2026 Copyframe
+directories:
+  output: release/viewer
+files:
+  - viewer/electron/**/*
+  - viewer/server.mjs
+  - package.json
+asar: true
+asarUnpack:
+  - viewer/electron/**
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: zip
+  artifactName: ${productName}-${version}-${arch}-mac.${ext}
+win:
+  target:
+    - target: portable
+  artifactName: ${productName}-${version}-${arch}-win.${ext}
+linux:
+  target:
+    - target: AppImage
+  category: Utility
