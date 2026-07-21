@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to create or update (for example v0.1.2)
+        description: Release tag to create or update (for example v0.1.3)
         required: true
         type: string
 
@@ -22,7 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install
       - run: npm run viewer:pack:mac
       - uses: actions/upload-artifact@v4
@@ -39,7 +38,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install
       - run: npm run viewer:pack:win
       - uses: actions/upload-artifact@v4
