@@ -26,7 +26,7 @@ window.addEventListener('DOMContentLoaded', () => {
     button:hover { color:#fff; background:#6357dd; }
     button:focus-visible { outline:2px solid #8e84ff; outline-offset:2px; }
     button:disabled { opacity:.65; cursor:wait; }
-  </style><div class="bar"><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
+  </style><div class="bar"><button id="assets" type="button" title="只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。">加载缺失资源</button><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
   const invoke = async (button, label, channel) => {
     button.disabled = true;
     const original = button.textContent;
@@ -42,6 +42,22 @@ window.addEventListener('DOMContentLoaded', () => {
     button.disabled = false;
     button.textContent = original;
   };
+  const assetsButton = shadow.getElementById('assets');
+  const updateAssetButton = () => {
+    const enabled = new URL(location.href).searchParams.get('copyframe-allow-external-assets') === '1';
+    assetsButton.textContent = enabled ? '恢复离线资源' : '加载缺失资源';
+    assetsButton.title = enabled
+      ? '停止从原网页补载图片和视频，恢复严格离线查看。'
+      : '只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。';
+  };
+  assetsButton.addEventListener('click', () => {
+    const target = new URL(location.href);
+    const enabled = target.searchParams.get('copyframe-allow-external-assets') === '1';
+    if (enabled) target.searchParams.delete('copyframe-allow-external-assets');
+    else target.searchParams.set('copyframe-allow-external-assets', '1');
+    location.assign(target.href);
+  });
+  updateAssetButton();
   shadow.getElementById('home').addEventListener('click', (event) => invoke(event.currentTarget, '正在返回…', 'copyframe-viewer:return-to-welcome'));
   shadow.getElementById('open').addEventListener('click', (event) => invoke(event.currentTarget, '正在打开…', 'copyframe-viewer:choose-archive'));
   document.documentElement.append(host);

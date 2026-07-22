@@ -14,6 +14,10 @@ Extract the downloaded archive, open Copyframe Viewer, and select the unpacked o
 
 You can also drag the unpacked folder or its `index.html` directly into the Viewer window.
 
+## Missing images or video
+
+Viewer stays offline by default. If an older package still has a missing image or video, click **加载缺失资源** in the top-right toolbar. This only lets the original website supply images and media for the current page; remote APIs, login, scripts, WebSocket, and event streams remain blocked. Click **恢复离线资源** at any time to return to strict offline mode.
+
 ## First open: macOS and Windows
 
 Viewer is currently a portable app without Apple notarization or Windows code signing. Download it only from this official release page.

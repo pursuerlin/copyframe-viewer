@@ -1,5 +1,5 @@
 import { createReadStream, existsSync } from 'node:fs';
-import { realpath, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,19 +12,24 @@ const mime = {
   '.ttf': 'font/ttf', '.otf': 'font/otf', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.wasm': 'application/wasm', '.pdf': 'application/pdf'
 };
-const offlineContentSecurityPolicy = [
-  "default-src 'self' data: blob:", "base-uri 'none'", "object-src 'none'", "connect-src 'self'",
-  "img-src 'self' data: blob:", "media-src 'self' data: blob:", "font-src 'self' data:",
-  "style-src 'self' 'unsafe-inline' data:", "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
-  "frame-src 'self' data: blob:", "worker-src 'self' blob:"
-].join('; ');
+function archiveContentSecurityPolicy(allowExternalAssets = false) {
+  const assetSources = allowExternalAssets ? "'self' data: blob: https: http:" : "'self' data: blob:";
+  return [
+    "default-src 'self' data: blob:", "base-uri 'none'", "object-src 'none'", "connect-src 'self'",
+    `img-src ${assetSources}`, `media-src ${assetSources}`, "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline' data:", "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+    "frame-src 'self' data: blob:", "worker-src 'self' blob:"
+  ].join('; ');
+}
 
 export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 } = {}) {
   const root = await archiveRoot(input);
   const server = createServer(async (request, response) => {
     try {
       if (!['GET', 'HEAD'].includes(request.method || 'GET')) throw new Error('不支持的请求方法');
-      const pathname = new URL(request.url || '/', 'http://copyframe.local').pathname;
+      const requestUrl = new URL(request.url || '/', 'http://copyframe.local');
+      const pathname = requestUrl.pathname;
+      const allowExternalAssets = requestUrl.searchParams.get('copyframe-allow-external-assets') === '1';
       const candidate = await archiveFile(root, pathname === '/' ? '/index.html' : pathname);
       const info = await stat(candidate);
       if (!info.isFile()) throw new Error('不是文件');
@@ -32,12 +37,15 @@ export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 
       response.writeHead(200, {
         'Content-Type': mime[extension] || 'application/octet-stream',
         'Cache-Control': 'no-store',
-        'Content-Security-Policy': offlineContentSecurityPolicy,
+        'Content-Security-Policy': archiveContentSecurityPolicy(allowExternalAssets),
         'Cross-Origin-Resource-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff'
       });
       if (request.method === 'HEAD') response.end();
-      else createReadStream(candidate).pipe(response);
+      else if (extension === '.html') {
+        const html = await readFile(candidate, 'utf8');
+        response.end(allowExternalAssets ? relaxAssetContentSecurityPolicy(html) : html);
+      } else createReadStream(candidate).pipe(response);
     } catch {
       response.writeHead(404, {
         'Content-Type': 'text/plain; charset=utf-8',
@@ -61,6 +69,14 @@ export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 
     throw new Error('无法确定离线 Viewer 的本地地址。');
   }
   return { server, root, host, port: address.port, url: `http://${host}:${address.port}/` };
+}
+
+function relaxAssetContentSecurityPolicy(html) {
+  const policy = archiveContentSecurityPolicy(true);
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
+  const expression = /<meta\b(?=[^>]*\bhttp-equiv\s*=\s*(?:"content-security-policy"|'content-security-policy'|content-security-policy))[^>]*>/gi;
+  const output = String(html || '').replace(expression, meta);
+  return output === html ? `${meta}${html}` : output;
 }
 
 export function closeArchiveServer(server) {

@@ -24,9 +24,7 @@ app.whenReady().then(async () => {
   buildMenu();
   if (pendingOpenPath) await openArchive(pendingOpenPath);
   else await showWelcome();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-  });
+  app.on('activate', () => { void restoreMainWindow(); });
 }).catch((error) => {
   dialog.showErrorBox('Copyframe Viewer 无法启动', messageOf(error));
   app.quit();
@@ -69,8 +67,24 @@ function createMainWindow() {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
   });
   mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
-  mainWindow.on('closed', () => { mainWindow = undefined; });
+  mainWindow.on('closed', () => {
+    mainWindow = undefined;
+    void releaseArchiveServer();
+  });
   return mainWindow;
+}
+
+async function restoreMainWindow() {
+  const window = createMainWindow();
+  if (!window.isVisible()) await showWelcome();
+  window.show();
+  window.focus();
+}
+
+async function releaseArchiveServer() {
+  const previous = archive;
+  archive = undefined;
+  if (previous?.server) await closeArchiveServer(previous.server).catch(() => {});
 }
 
 function hardenElectronSession() {
@@ -123,8 +137,11 @@ async function openArchive(input) {
     const selected = await resolveArchiveSelection(input);
     await replaceArchiveServer(selected.root);
     const page = relative(archive.root, selected.page).replaceAll('\\', '/');
-    await createMainWindow().loadURL(new URL(page, archive.url).href);
-    createMainWindow().setTitle(`Copyframe Viewer — ${basename(selected.page)}`);
+    const window = createMainWindow();
+    await window.loadURL(new URL(page, archive.url).href);
+    window.setTitle(`Copyframe Viewer — ${basename(selected.page)}`);
+    window.show();
+    window.focus();
     return { ok: true };
   } catch (error) {
     const message = messageOf(error);
@@ -171,6 +188,8 @@ async function showWelcome(error = '') {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   await mainWindow.loadURL(`${welcomeUrl}${error ? `?error=${encodeURIComponent(error)}` : ''}`);
   mainWindow.setTitle('Copyframe Viewer');
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 function isViewerUrl(url) {
