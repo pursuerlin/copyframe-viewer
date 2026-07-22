@@ -5,14 +5,28 @@ body { min-width: 560px; min-height: 100vh; margin: 0; background: radial-gradie
 .brand { display: flex; align-items: center; gap: 10px; color: #2e3652; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .brand-mark { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(145deg, #6d5cf6, #9886ff); box-shadow: 0 7px 17px rgba(98, 82, 236, .26); position: relative; }
 .brand-mark::after { content: ""; position: absolute; inset: 6px 5px; border: 2px solid white; border-top-width: 3px; border-radius: 2px; transform: skewY(-15deg); }
-.welcome-card { margin-top: 42px; padding: 48px; background: rgba(255,255,255,.86); border: 1px solid rgba(99, 102, 241, .13); border-radius: 22px; box-shadow: 0 22px 62px rgba(42, 49, 91, .11); }
+.welcome-card { margin-top: 42px; padding: 48px; background: rgba(255,255,255,.86); border: 1px solid rgba(99, 102, 241, .13); border-radius: 22px; box-shadow: 0 22px 62px rgba(42, 49, 91, .11); transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+.welcome-card.drag-active { border-color: #8a80ef; background: #fafaff; box-shadow: 0 0 0 4px rgba(112, 97, 235, .13), 0 22px 62px rgba(42, 49, 91, .11); }
 .eyebrow { display: inline-flex; padding: 5px 10px; color: #5b50ce; background: #eeecff; border-radius: 99px; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
 h1 { max-width: 590px; margin: 16px 0; font-size: clamp(32px, 5vw, 44px); line-height: 1.15; letter-spacing: -.045em; }
 p { margin: 0; color: #5a6379; font-size: 16px; line-height: 1.75; }
 button { margin: 30px 0 0; padding: 13px 20px; border: 0; border-radius: 10px; color: white; background: #6357dd; box-shadow: 0 9px 18px rgba(99, 87, 221, .24); cursor: pointer; font: inherit; font-weight: 700; transition: transform .15s ease, background .15s ease; }
 button:hover { background: #5548d1; transform: translateY(-1px); } button:focus-visible { outline: 3px solid #c4c0ff; outline-offset: 3px; }
+.drop-hint { margin-top: 12px; color: #7b8498; font-size: 13px; line-height: 1.5; }
 ol { margin: 34px 0 0; padding: 20px 0 0 26px; border-top: 1px solid #e8eaf2; color: #687187; font-size: 14px; line-height: 2; }
 code { padding: 2px 5px; color: #4d458e; background: #f0effc; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
 .error { margin-top: 18px; padding: 9px 12px; color: #b54708; background: #fff4e6; border: 1px solid #fed7aa; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.security-help { margin: 20px 18px 0; padding: 0 16px; border: 1px solid #e0e5ef; border-radius: 12px; background: rgba(255,255,255,.7); }
+.security-help summary { padding: 13px 0; color: #4a5971; cursor: pointer; font-size: 13px; font-weight: 700; }
+.security-help summary::marker { color: #7165e6; }
+.security-intro { margin: 0 0 12px; color: #69778c; font-size: 13px; line-height: 1.6; }
+.security-intro a { color: #5c50d2; font-weight: 700; text-decoration: none; }
+.security-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 12px; border-top: 1px solid #e8ebf2; }
+.security-grid section { padding: 12px; border-radius: 9px; background: #f8f9fd; }
+.security-grid strong { color: #44516a; font-size: 13px; }
+.security-grid p { margin-top: 6px; color: #6b7689; font-size: 12px; line-height: 1.65; }
+.security-grid code { display: block; margin-top: 8px; overflow-wrap: anywhere; color: #4e477e; background: #efeffa; font-size: 11px; line-height: 1.5; user-select: all; }
+.security-grid small { display: block; margin-top: 7px; color: #838da0; font-size: 11px; line-height: 1.5; }
+.security-footnote { margin: 12px 0 14px; color: #8791a4; font-size: 12px; line-height: 1.6; }
 .footnote { margin: 20px 18px; color: #7b8498; font-size: 13px; text-align: center; }
-@media (max-width: 680px) { body { min-width: 0; } .welcome-shell { width: min(100% - 32px, 780px); padding-top: 28px; } .welcome-card { margin-top: 28px; padding: 30px 24px; } }
+@media (max-width: 680px) { body { min-width: 0; } .welcome-shell { width: min(100% - 32px, 780px); padding-top: 28px; } .welcome-card { margin-top: 28px; padding: 30px 24px; } .security-help { margin-left: 0; margin-right: 0; } .security-grid { grid-template-columns: 1fr; } }

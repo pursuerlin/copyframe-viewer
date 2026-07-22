@@ -1,11 +1,16 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // Sandboxed Electron preloads support the CommonJS Electron bridge. Keeping
 // this file as .cjs is important: an ESM preload can silently fail to expose
 // the bridge in a packaged macOS app, leaving the welcome-page button inert.
 contextBridge.exposeInMainWorld('copyframeViewer', {
   chooseArchive: () => ipcRenderer.invoke('copyframe-viewer:choose-archive'),
-  returnToWelcome: () => ipcRenderer.invoke('copyframe-viewer:return-to-welcome')
+  returnToWelcome: () => ipcRenderer.invoke('copyframe-viewer:return-to-welcome'),
+  openDroppedFile: (file) => {
+    let filePath = '';
+    try { filePath = webUtils.getPathForFile(file); } catch { filePath = file?.path || ''; }
+    return ipcRenderer.invoke('copyframe-viewer:open-dropped-file', filePath);
+  }
 });
 
 window.addEventListener('DOMContentLoaded', () => {

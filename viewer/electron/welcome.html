@@ -15,6 +15,7 @@
         <h1 id="welcome-title">无需终端，直接打开<br />完整离线网页</h1>
         <p>选择 Copyframe 导出 ZIP 解压后的文件夹，Viewer 会只在你的电脑上启动一个临时本地地址，让交互包、媒体和同源 iframe 都能正常加载。</p>
         <button id="open-archive" type="button">打开离线网页</button>
+        <p class="drop-hint" id="drop-hint">也可以把解压后的文件夹或 <code>index.html</code> 直接拖到此窗口。</p>
         <p class="error" id="error" role="alert" hidden></p>
         <ol>
           <li>解压 Copyframe 下载的 ZIP</li>
@@ -22,6 +23,23 @@
           <li>浏览、缩放或使用离线网页；关闭 Viewer 即自动停止</li>
         </ol>
       </section>
+      <details class="security-help">
+        <summary>首次打开遇到系统提示？</summary>
+        <p class="security-intro">Viewer 目前尚未完成 Apple 公证或 Windows 代码签名。请只从 <a href="https://github.com/pursuerlin/copyframe-viewer/releases/latest">Copyframe Viewer 官方发布页</a> 下载。</p>
+        <div class="security-grid">
+          <section>
+            <strong>macOS</strong>
+            <p>若提示无法验证，先在 Finder 中对 <b>Copyframe Viewer.app</b> 右键选择“打开”，再确认一次。若仍显示“已损坏”，在终端执行：</p>
+            <code>xattr -dr com.apple.quarantine "$HOME/Downloads/Copyframe Viewer.app"</code>
+            <small>移动到“应用程序”后，请把命令中的路径改为实际位置。</small>
+          </section>
+          <section>
+            <strong>Windows</strong>
+            <p>若出现 SmartScreen，请先核对来源是官方发布页，再点击“更多信息”→“仍要运行”。来源不确定时不要继续。</p>
+          </section>
+        </div>
+        <p class="security-footnote">代码签名与 Apple 公证可消除这些系统提示；在此之前，以上是由你明确确认的安全打开方式。</p>
+      </details>
       <p class="footnote">静态保真包仍可以直接双击 <code>index.html</code>；“尽量保留交互”和“完整封存”建议始终通过 Viewer 打开。</p>
     </main>
     <script src="welcome.js"></script>

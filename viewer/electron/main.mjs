@@ -125,8 +125,11 @@ async function openArchive(input) {
     const page = relative(archive.root, selected.page).replaceAll('\\', '/');
     await createMainWindow().loadURL(new URL(page, archive.url).href);
     createMainWindow().setTitle(`Copyframe Viewer — ${basename(selected.page)}`);
+    return { ok: true };
   } catch (error) {
-    await returnToWelcome(messageOf(error));
+    const message = messageOf(error);
+    await returnToWelcome(message);
+    return { ok: false, error: message };
   }
 }
 
@@ -204,8 +207,13 @@ ipcMain.handle('copyframe-viewer:choose-archive', async (event) => {
     filters: [{ name: '网页文件', extensions: ['html', 'htm'] }]
   });
   if (result.canceled || !result.filePaths[0]) return { ok: false, cancelled: true };
-  await openArchive(result.filePaths[0]);
-  return { ok: true };
+  return openArchive(result.filePaths[0]);
+});
+
+ipcMain.handle('copyframe-viewer:open-dropped-file', async (event, filePath) => {
+  if (!canControlViewer(event)) return { ok: false, error: '此操作只能在 Copyframe Viewer 中使用。' };
+  if (typeof filePath !== 'string' || !filePath.trim()) return { ok: false, error: '没有读取到拖入的文件。请拖入解压后的文件夹或 index.html。' };
+  return openArchive(filePath);
 });
 
 ipcMain.handle('copyframe-viewer:return-to-welcome', async (event) => {
