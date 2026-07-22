@@ -8,7 +8,7 @@ if (params.get('error')) showError(params.get('error'));
 
 openButton.addEventListener('click', async () => {
   if (!window.copyframeViewer?.chooseArchive) {
-    showError('文件选择器未启动。请按 ⌘O，或从菜单栏选择“文件 → 打开离线网页…”。');
+    showError('文件选择器未启动。请按 ⌘/Ctrl + O，或从菜单栏选择“文件 → 打开离线网页…”。');
     return;
   }
   openButton.disabled = true;
@@ -52,7 +52,7 @@ window.addEventListener('drop', async (event) => {
   clearDropState();
   const [file] = [...(event.dataTransfer.files || [])];
   if (!file || !window.copyframeViewer?.openDroppedFile) {
-    showError('无法读取拖入的文件。请按 ⌘O，或使用“文件 → 打开离线网页…”。');
+    showError('无法读取拖入的文件。请按 ⌘/Ctrl + O，或使用“文件 → 打开离线网页…”。');
     return;
   }
   openButton.disabled = true;
