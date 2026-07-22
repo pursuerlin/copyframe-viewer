@@ -12,6 +12,12 @@ const mime = {
   '.ttf': 'font/ttf', '.otf': 'font/otf', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.wasm': 'application/wasm', '.pdf': 'application/pdf'
 };
+const offlineContentSecurityPolicy = [
+  "default-src 'self' data: blob:", "base-uri 'none'", "object-src 'none'", "connect-src 'self'",
+  "img-src 'self' data: blob:", "media-src 'self' data: blob:", "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline' data:", "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "frame-src 'self' data: blob:", "worker-src 'self' blob:"
+].join('; ');
 
 export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 } = {}) {
   const root = await archiveRoot(input);
@@ -26,7 +32,8 @@ export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 
       response.writeHead(200, {
         'Content-Type': mime[extension] || 'application/octet-stream',
         'Cache-Control': 'no-store',
-        'Access-Control-Allow-Origin': '*',
+        'Content-Security-Policy': offlineContentSecurityPolicy,
+        'Cross-Origin-Resource-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff'
       });
       if (request.method === 'HEAD') response.end();
