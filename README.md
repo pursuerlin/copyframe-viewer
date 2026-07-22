@@ -28,6 +28,10 @@ Viewer is currently a portable app without Apple notarization or Windows code si
 
 Code signing and Apple notarization remove these system prompts. Until then, the above steps keep the choice explicit and do not require Python, Node.js, or a server.
 
+## Privacy policy
+
+The Copyframe browser extension privacy policy is available at [privacy/index.html](./privacy/index.html).
+
 ## Develop
 
 `npm install`, then run `npm run viewer:dev`. Release maintainers can create a `v*` tag to build macOS and Windows artifacts automatically.
