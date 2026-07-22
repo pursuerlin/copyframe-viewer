@@ -51,7 +51,7 @@ function createMainWindow() {
     title: 'Copyframe Viewer',
     backgroundColor: '#f7f8fc',
     webPreferences: {
-      preload: resolve(here, 'preload.mjs'),
+      preload: resolve(here, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
