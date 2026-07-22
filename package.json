@@ -1,6 +1,6 @@
 {
   "name": "copyframe-viewer",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Portable local Viewer for Copyframe offline webpages.",
   "author": "Copyframe",
   "type": "module",

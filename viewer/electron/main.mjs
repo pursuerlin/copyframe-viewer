@@ -140,9 +140,12 @@ async function replaceArchiveServer(root) {
 
 async function returnToWelcome(error = '') {
   const previous = archive;
-  archive = undefined;
-  if (previous?.server) await closeArchiveServer(previous.server).catch(() => {});
+  // Navigate first. Closing an HTTP server while its current page is still
+  // loaded waits for that page's keep-alive connection and deadlocks the
+  // return action. The welcome page does not need the archive server.
   await showWelcome(error);
+  if (archive === previous) archive = undefined;
+  if (previous?.server) void closeArchiveServer(previous.server).catch(() => {});
 }
 
 async function resolveArchiveSelection(input) {
