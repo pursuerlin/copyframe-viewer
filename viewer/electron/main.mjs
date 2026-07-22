@@ -84,7 +84,7 @@ function buildMenu() {
       label: '文件',
       submenu: [
         { label: '打开离线网页…', accelerator: 'CommandOrControl+O', click: () => void chooseArchive() },
-        { label: '回到开始页', accelerator: 'CommandOrControl+Shift+O', click: () => void showWelcome() },
+        { label: '回到开始页', accelerator: 'CommandOrControl+Shift+O', click: () => void returnToWelcome() },
         { type: 'separator' },
         { role: 'close', label: '关闭窗口' }
       ]
@@ -102,7 +102,7 @@ function buildMenu() {
     },
     {
       label: '帮助',
-      submenu: [{ label: 'Copyframe Viewer 使用说明', click: () => void showWelcome() }]
+      submenu: [{ label: 'Copyframe Viewer 使用说明', click: () => void returnToWelcome() }]
     }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -126,7 +126,7 @@ async function openArchive(input) {
     await createMainWindow().loadURL(new URL(page, archive.url).href);
     createMainWindow().setTitle(`Copyframe Viewer — ${basename(selected.page)}`);
   } catch (error) {
-    await showWelcome(messageOf(error));
+    await returnToWelcome(messageOf(error));
   }
 }
 
@@ -136,6 +136,13 @@ async function replaceArchiveServer(root) {
   const previous = archive;
   archive = nextArchive;
   if (previous?.server) await closeArchiveServer(previous.server).catch(() => {});
+}
+
+async function returnToWelcome(error = '') {
+  const previous = archive;
+  archive = undefined;
+  if (previous?.server) await closeArchiveServer(previous.server).catch(() => {});
+  await showWelcome(error);
 }
 
 async function resolveArchiveSelection(input) {
@@ -159,10 +166,19 @@ async function showWelcome(error = '') {
 
 function isViewerUrl(url) {
   if (url.startsWith(welcomeUrl)) return true;
+  return isArchiveUrl(url);
+}
+
+function isArchiveUrl(url) {
   try {
     const parsed = new URL(url);
     return parsed.origin === new URL(archive?.url || 'http://127.0.0.1:0/').origin;
   } catch { return false; }
+}
+
+function canControlViewer(event) {
+  const senderUrl = event.senderFrame?.url || '';
+  return senderUrl.startsWith(welcomeUrl) || isArchiveUrl(senderUrl);
 }
 
 function firstPathArgument(argumentsList) {
@@ -174,7 +190,7 @@ function messageOf(error) {
 }
 
 ipcMain.handle('copyframe-viewer:choose-archive', async (event) => {
-  if (!event.senderFrame?.url?.startsWith(welcomeUrl)) return { ok: false, error: '此操作只能在 Copyframe Viewer 开始页使用。' };
+  if (!canControlViewer(event)) return { ok: false, error: '此操作只能在 Copyframe Viewer 中使用。' };
   const result = await dialog.showOpenDialog(createMainWindow(), {
     title: '选择解压后的离线网页文件夹或 index.html',
     buttonLabel: '打开离线网页',
@@ -183,5 +199,11 @@ ipcMain.handle('copyframe-viewer:choose-archive', async (event) => {
   });
   if (result.canceled || !result.filePaths[0]) return { ok: false, cancelled: true };
   await openArchive(result.filePaths[0]);
+  return { ok: true };
+});
+
+ipcMain.handle('copyframe-viewer:return-to-welcome', async (event) => {
+  if (!canControlViewer(event)) return { ok: false, error: '此操作只能在 Copyframe Viewer 中使用。' };
+  await returnToWelcome();
   return { ok: true };
 });
