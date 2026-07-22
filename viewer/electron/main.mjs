@@ -135,7 +135,10 @@ async function replaceArchiveServer(root) {
   const nextArchive = await createArchiveServer(root);
   const previous = archive;
   archive = nextArchive;
-  if (previous?.server) await closeArchiveServer(previous.server).catch(() => {});
+  // The currently displayed archive can keep an HTTP connection alive. Do not
+  // wait for its server to close before navigating to the newly selected page,
+  // otherwise "打开其他网页" can deadlock in the same way as the return action.
+  if (previous?.server) void closeArchiveServer(previous.server).catch(() => {});
 }
 
 async function returnToWelcome(error = '') {
