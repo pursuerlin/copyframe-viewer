@@ -15,13 +15,19 @@ contextBridge.exposeInMainWorld('copyframeViewer', {
 
 window.addEventListener('DOMContentLoaded', () => {
   if (location.protocol !== 'http:' || location.hostname !== '127.0.0.1' || document.querySelector('[data-copyframe-viewer-toolbar]')) return;
-  const host = document.createElement('div');
+  const viewerDocument = document;
+  const host = viewerDocument.createElement('div');
   host.setAttribute('data-copyframe-viewer-toolbar', '');
-  host.style.cssText = 'position:fixed;top:12px;right:14px;z-index:2147483647;pointer-events:auto';
+  const hostStyles = {
+    position: 'fixed', top: '12px', right: '14px', zIndex: '2147483647', pointerEvents: 'auto',
+    display: 'block', visibility: 'visible', opacity: '1', filter: 'none', transform: 'none',
+    width: 'max-content', height: 'auto', margin: '0', padding: '0', isolation: 'isolate'
+  };
+  for (const [property, value] of Object.entries(hostStyles)) host.style.setProperty(property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`), value, 'important');
   const shadow = host.attachShadow({ mode: 'closed' });
   shadow.innerHTML = `<style>
-    :host { all: initial; }
-    .bar { display:flex; gap:6px; padding:5px; border:1px solid rgba(123,137,169,.32); border-radius:10px; background:rgba(255,255,255,.94); box-shadow:0 7px 22px rgba(29,42,69,.18); backdrop-filter:blur(8px); font:12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+    :host { display:block !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important; }
+    .bar { display:flex; width:max-content; gap:6px; padding:5px; border:1px solid rgba(123,137,169,.32); border-radius:10px; background:rgba(255,255,255,.94); box-shadow:0 7px 22px rgba(29,42,69,.18); backdrop-filter:blur(8px); font:12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; pointer-events:auto; }
     button { appearance:none; border:0; border-radius:7px; padding:7px 9px; color:#41516e; background:transparent; font:inherit; font-weight:650; cursor:pointer; }
     button:hover { color:#fff; background:#6357dd; }
     button:focus-visible { outline:2px solid #8e84ff; outline-offset:2px; }
@@ -60,5 +66,15 @@ window.addEventListener('DOMContentLoaded', () => {
   updateAssetButton();
   shadow.getElementById('home').addEventListener('click', (event) => invoke(event.currentTarget, '正在返回…', 'copyframe-viewer:return-to-welcome'));
   shadow.getElementById('open').addEventListener('click', (event) => invoke(event.currentTarget, '正在打开…', 'copyframe-viewer:choose-archive'));
-  document.documentElement.append(host);
+  const mountToolbar = () => {
+    if (!host.isConnected && viewerDocument.documentElement) viewerDocument.documentElement.append(host);
+  };
+  // React/Next.js can hydrate the entire HTML document and discard unknown
+  // siblings that were inserted at DOMContentLoaded. Keep Viewer chrome in an
+  // isolated world and reattach the same host after any such replacement.
+  const observer = new MutationObserver(mountToolbar);
+  observer.observe(viewerDocument, { childList: true, subtree: true });
+  window.addEventListener('pageshow', mountToolbar);
+  window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+  mountToolbar();
 });

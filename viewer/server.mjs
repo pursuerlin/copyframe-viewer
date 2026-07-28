@@ -15,7 +15,7 @@ const mime = {
 function archiveContentSecurityPolicy(allowExternalAssets = false) {
   const assetSources = allowExternalAssets ? "'self' data: blob: https: http:" : "'self' data: blob:";
   return [
-    "default-src 'self' data: blob:", "base-uri 'none'", "object-src 'none'", "connect-src 'self'",
+    "default-src 'self' data: blob:", "base-uri 'none'", "object-src 'none'", "form-action 'none'", "connect-src 'self'",
     `img-src ${assetSources}`, `media-src ${assetSources}`, "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline' data:", "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
     "frame-src 'self' data: blob:", "worker-src 'self' blob:"
