@@ -3,15 +3,18 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 // Sandboxed Electron preloads support the CommonJS Electron bridge. Keeping
 // this file as .cjs is important: an ESM preload can silently fail to expose
 // the bridge in a packaged macOS app, leaving the welcome-page button inert.
-contextBridge.exposeInMainWorld('copyframeViewer', {
-  chooseArchive: () => ipcRenderer.invoke('copyframe-viewer:choose-archive'),
-  returnToWelcome: () => ipcRenderer.invoke('copyframe-viewer:return-to-welcome'),
-  openDroppedFile: (file) => {
-    let filePath = '';
-    try { filePath = webUtils.getPathForFile(file); } catch { filePath = file?.path || ''; }
-    return ipcRenderer.invoke('copyframe-viewer:open-dropped-file', filePath);
-  }
-});
+const isWelcomePage = location.protocol === 'file:' && /\/welcome\.html$/i.test(decodeURIComponent(location.pathname));
+if (isWelcomePage) {
+  contextBridge.exposeInMainWorld('copyframeViewer', {
+    chooseArchive: () => ipcRenderer.invoke('copyframe-viewer:choose-archive'),
+    getAppInfo: () => ipcRenderer.invoke('copyframe-viewer:get-app-info'),
+    openDroppedFile: (file) => {
+      let filePath = '';
+      try { filePath = webUtils.getPathForFile(file); } catch { filePath = file?.path || ''; }
+      return ipcRenderer.invoke('copyframe-viewer:open-dropped-file', filePath);
+    }
+  });
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   if (location.protocol !== 'http:' || location.hostname !== '127.0.0.1' || document.querySelector('[data-copyframe-viewer-toolbar]')) return;
@@ -28,11 +31,12 @@ window.addEventListener('DOMContentLoaded', () => {
   shadow.innerHTML = `<style>
     :host { display:block !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important; }
     .bar { display:flex; width:max-content; gap:6px; padding:5px; border:1px solid rgba(123,137,169,.32); border-radius:10px; background:rgba(255,255,255,.94); box-shadow:0 7px 22px rgba(29,42,69,.18); backdrop-filter:blur(8px); font:12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; pointer-events:auto; }
+    .version { align-self:center; padding:0 5px; color:#71809a; font:600 10px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; white-space:nowrap; }
     button { appearance:none; border:0; border-radius:7px; padding:7px 9px; color:#41516e; background:transparent; font:inherit; font-weight:650; cursor:pointer; }
     button:hover { color:#fff; background:#6357dd; }
     button:focus-visible { outline:2px solid #8e84ff; outline-offset:2px; }
     button:disabled { opacity:.65; cursor:wait; }
-  </style><div class="bar"><button id="assets" type="button" title="只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。">加载缺失资源</button><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
+  </style><div class="bar"><span class="version" id="version" aria-label="Viewer 版本"></span><button id="assets" type="button" title="只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。">加载缺失资源</button><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
   const invoke = async (button, label, channel) => {
     button.disabled = true;
     const original = button.textContent;
@@ -49,32 +53,84 @@ window.addEventListener('DOMContentLoaded', () => {
     button.textContent = original;
   };
   const assetsButton = shadow.getElementById('assets');
-  const updateAssetButton = () => {
-    const enabled = new URL(location.href).searchParams.get('copyframe-allow-external-assets') === '1';
+  const updateAssetButton = (enabled) => {
+    assetsButton.dataset.enabled = String(Boolean(enabled));
     assetsButton.textContent = enabled ? '恢复离线资源' : '加载缺失资源';
     assetsButton.title = enabled
       ? '停止从原网页补载图片和视频，恢复严格离线查看。'
       : '只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。';
   };
-  assetsButton.addEventListener('click', () => {
-    const target = new URL(location.href);
-    const enabled = target.searchParams.get('copyframe-allow-external-assets') === '1';
-    if (enabled) target.searchParams.delete('copyframe-allow-external-assets');
-    else target.searchParams.set('copyframe-allow-external-assets', '1');
-    location.assign(target.href);
+  const refreshViewerState = async () => {
+    try {
+      const state = await ipcRenderer.invoke('copyframe-viewer:get-viewer-state');
+      if (!state?.ok) throw new Error(state?.error || '无法读取 Viewer 状态');
+      shadow.getElementById('version').textContent = state.version ? `v${state.version}` : '';
+      updateAssetButton(state.externalAssetsAllowed);
+    } catch {
+      updateAssetButton(false);
+    }
+  };
+  assetsButton.addEventListener('click', async () => {
+    const enabled = assetsButton.dataset.enabled === 'true';
+    assetsButton.disabled = true;
+    assetsButton.textContent = '正在切换…';
+    try {
+      const state = await ipcRenderer.invoke('copyframe-viewer:set-external-assets', !enabled);
+      if (!state?.ok) throw new Error(state?.error || '无法切换资源模式');
+      location.reload();
+    } catch (error) {
+      assetsButton.disabled = false;
+      assetsButton.textContent = error instanceof Error ? error.message : '切换失败';
+      window.setTimeout(() => {
+        assetsButton.disabled = false;
+        updateAssetButton(enabled);
+      }, 1800);
+    }
   });
-  updateAssetButton();
+  const legacyUrl = new URL(location.href);
+  if (legacyUrl.searchParams.has('copyframe-allow-external-assets')) {
+    legacyUrl.searchParams.delete('copyframe-allow-external-assets');
+    history.replaceState(history.state, '', legacyUrl.href);
+  }
+  void refreshViewerState();
   shadow.getElementById('home').addEventListener('click', (event) => invoke(event.currentTarget, '正在返回…', 'copyframe-viewer:return-to-welcome'));
   shadow.getElementById('open').addEventListener('click', (event) => invoke(event.currentTarget, '正在打开…', 'copyframe-viewer:choose-archive'));
+  const openTrustedExternalLink = (event) => {
+    if (!event.isTrusted || event.defaultPrevented || ![0, 1].includes(event.button)) return;
+    const link = event.composedPath().find((node) => node?.matches?.('a[href],area[href]'));
+    if (!link) return;
+    let target;
+    try { target = new URL(link.href, location.href); } catch { return; }
+    if (!['http:', 'https:'].includes(target.protocol) || target.origin === location.origin) return;
+    event.preventDefault();
+    void ipcRenderer.invoke('copyframe-viewer:open-external-link', target.href);
+  };
+  viewerDocument.addEventListener('click', openTrustedExternalLink, true);
+  viewerDocument.addEventListener('auxclick', openTrustedExternalLink, true);
+  let observedRoot = null;
+  let rootObserver = null;
+  const observeRoot = () => {
+    const root = viewerDocument.documentElement;
+    if (!root || root === observedRoot) return root;
+    rootObserver?.disconnect();
+    observedRoot = root;
+    rootObserver = new MutationObserver(mountToolbar);
+    rootObserver.observe(root, { childList: true });
+    return root;
+  };
   const mountToolbar = () => {
-    if (!host.isConnected && viewerDocument.documentElement) viewerDocument.documentElement.append(host);
+    const root = observeRoot();
+    if (!host.isConnected && root) root.append(host);
   };
   // React/Next.js can hydrate the entire HTML document and discard unknown
   // siblings that were inserted at DOMContentLoaded. Keep Viewer chrome in an
   // isolated world and reattach the same host after any such replacement.
-  const observer = new MutationObserver(mountToolbar);
-  observer.observe(viewerDocument, { childList: true, subtree: true });
+  const documentObserver = new MutationObserver(mountToolbar);
+  documentObserver.observe(viewerDocument, { childList: true });
   window.addEventListener('pageshow', mountToolbar);
-  window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+  window.addEventListener('pagehide', () => {
+    documentObserver.disconnect();
+    rootObserver?.disconnect();
+  }, { once: true });
   mountToolbar();
 });

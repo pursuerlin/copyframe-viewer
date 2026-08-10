@@ -24,29 +24,74 @@ function archiveContentSecurityPolicy(allowExternalAssets = false) {
 
 export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 } = {}) {
   const root = await archiveRoot(input);
+  let externalAssetsAllowed = false;
+  let entryPath = '/index.html';
   const server = createServer(async (request, response) => {
+    let requestUrl;
     try {
       if (!['GET', 'HEAD'].includes(request.method || 'GET')) throw new Error('不支持的请求方法');
-      const requestUrl = new URL(request.url || '/', 'http://copyframe.local');
+      requestUrl = new URL(request.url || '/', 'http://copyframe.local');
       const pathname = requestUrl.pathname;
-      const allowExternalAssets = requestUrl.searchParams.get('copyframe-allow-external-assets') === '1';
       const candidate = await archiveFile(root, pathname === '/' ? '/index.html' : pathname);
       const info = await stat(candidate);
       if (!info.isFile()) throw new Error('不是文件');
       const extension = extname(candidate).toLowerCase();
-      response.writeHead(200, {
+      const headers = {
         'Content-Type': mime[extension] || 'application/octet-stream',
         'Cache-Control': 'no-store',
-        'Content-Security-Policy': archiveContentSecurityPolicy(allowExternalAssets),
+        'Content-Security-Policy': archiveContentSecurityPolicy(externalAssetsAllowed),
         'Cross-Origin-Resource-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff'
-      });
-      if (request.method === 'HEAD') response.end();
-      else if (extension === '.html') {
+      };
+      if (extension === '.html') {
         const html = await readFile(candidate, 'utf8');
-        response.end(allowExternalAssets ? relaxAssetContentSecurityPolicy(html) : html);
-      } else createReadStream(candidate).pipe(response);
+        const body = Buffer.from(externalAssetsAllowed ? relaxAssetContentSecurityPolicy(html) : html);
+        response.writeHead(200, { ...headers, 'Content-Length': body.byteLength });
+        response.end(request.method === 'HEAD' ? undefined : body);
+        return;
+      }
+
+      const range = parseByteRange(request.headers.range, info.size);
+      if (range?.invalid) {
+        response.writeHead(416, {
+          ...headers,
+          'Accept-Ranges': 'bytes',
+          'Content-Range': `bytes */${info.size}`,
+          'Content-Length': '0'
+        });
+        response.end();
+        return;
+      }
+      const start = range?.start ?? 0;
+      const end = range?.end ?? Math.max(0, info.size - 1);
+      const length = info.size ? end - start + 1 : 0;
+      const streamHeaders = {
+        ...headers,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': String(length)
+      };
+      if (range) streamHeaders['Content-Range'] = `bytes ${start}-${end}/${info.size}`;
+      response.writeHead(range ? 206 : 200, streamHeaders);
+      if (request.method === 'HEAD' || !info.size) response.end();
+      else createReadStream(candidate, range ? { start, end } : undefined).pipe(response);
     } catch {
+      // Offline pages often contain client-side routes such as `/pricing` or
+      // buttons which update location before their framework handles the
+      // transition. Those routes are not files in the ZIP. A top-level 404
+      // used to replace the page with "离线资源不存在", and reloading after
+      // toggling missing assets only reloaded that error. Send document
+      // navigations back to the selected entry while keeping missing images,
+      // scripts and media as real 404s.
+      if (isDocumentNavigation(request, requestUrl) && requestUrl?.pathname !== entryPath) {
+        response.writeHead(302, {
+          Location: entryPath,
+          'Cache-Control': 'no-store',
+          'Content-Length': '0',
+          'X-Content-Type-Options': 'nosniff'
+        });
+        response.end();
+        return;
+      }
       response.writeHead(404, {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-store',
@@ -68,7 +113,48 @@ export async function createArchiveServer(input, { host = '127.0.0.1', port = 0 
     await closeArchiveServer(server);
     throw new Error('无法确定离线 Viewer 的本地地址。');
   }
-  return { server, root, host, port: address.port, url: `http://${host}:${address.port}/` };
+  return {
+    server,
+    root,
+    host,
+    port: address.port,
+    url: `http://${host}:${address.port}/`,
+    setEntryPath(value) { entryPath = normalizeEntryPath(value); },
+    entryPath() { return entryPath; },
+    setExternalAssetsAllowed(value) { externalAssetsAllowed = Boolean(value); },
+    externalAssetsAllowed() { return externalAssetsAllowed; }
+  };
+}
+
+function isDocumentNavigation(request, requestUrl) {
+  if (!requestUrl || !['GET', 'HEAD'].includes(request?.method || 'GET')) return false;
+  const destination = String(request.headers?.['sec-fetch-dest'] || '').toLowerCase();
+  if (destination) return destination === 'document';
+  return String(request.headers?.accept || '').toLowerCase().includes('text/html');
+}
+
+function normalizeEntryPath(value) {
+  const path = `/${String(value || 'index.html').replaceAll('\\', '/').replace(/^\/+/, '')}`;
+  return path === '/' ? '/index.html' : path;
+}
+
+export function parseByteRange(value, size) {
+  const input = String(value || '').trim();
+  const total = Math.max(0, Number(size) || 0);
+  if (!input) return null;
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(input);
+  if (!match || !total || (!match[1] && !match[2])) return { invalid: true };
+  if (!match[1]) {
+    const suffix = Number(match[2]);
+    if (!Number.isSafeInteger(suffix) || suffix <= 0) return { invalid: true };
+    return { start: Math.max(0, total - suffix), end: total - 1 };
+  }
+  const start = Number(match[1]);
+  const requestedEnd = match[2] ? Number(match[2]) : total - 1;
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start < 0 || start >= total || requestedEnd < start) {
+    return { invalid: true };
+  }
+  return { start, end: Math.min(requestedEnd, total - 1) };
 }
 
 function relaxAssetContentSecurityPolicy(html) {

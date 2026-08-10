@@ -3,6 +3,7 @@
 body { min-width: 560px; min-height: 100vh; margin: 0; background: radial-gradient(circle at 83% 8%, #e9e7ff 0, rgba(233,231,255,0) 28rem), linear-gradient(145deg, #fbfbff 0%, #f6f7fb 60%, #eef1ff 100%); }
 .welcome-shell { width: min(780px, calc(100vw - 80px)); margin: 0 auto; padding: 56px 0 48px; }
 .brand { display: flex; align-items: center; gap: 10px; color: #2e3652; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.brand-version { padding: 3px 7px; color: #746d99; background: rgba(255,255,255,.68); border: 1px solid rgba(99,102,241,.14); border-radius: 999px; font-size: 11px; font-weight: 650; }
 .brand-mark { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(145deg, #6d5cf6, #9886ff); box-shadow: 0 7px 17px rgba(98, 82, 236, .26); position: relative; }
 .brand-mark::after { content: ""; position: absolute; inset: 6px 5px; border: 2px solid white; border-top-width: 3px; border-radius: 2px; transform: skewY(-15deg); }
 .welcome-card { margin-top: 42px; padding: 48px; background: rgba(255,255,255,.86); border: 1px solid rgba(99, 102, 241, .13); border-radius: 22px; box-shadow: 0 22px 62px rgba(42, 49, 91, .11); transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }

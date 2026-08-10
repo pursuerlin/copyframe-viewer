@@ -2,9 +2,20 @@ const openButton = document.getElementById('open-archive');
 const error = document.getElementById('error');
 const welcomeCard = document.querySelector('.welcome-card');
 const dropHint = document.getElementById('drop-hint');
+const version = document.getElementById('viewer-version');
 
 const params = new URLSearchParams(location.search);
 if (params.get('error')) showError(params.get('error'));
+void showVersion();
+
+async function showVersion() {
+  try {
+    const info = await window.copyframeViewer?.getAppInfo?.();
+    if (!info?.ok || !info.version || !version) return;
+    version.textContent = `v${info.version}`;
+    version.hidden = false;
+  } catch { /* Version display is optional. */ }
+}
 
 openButton.addEventListener('click', async () => {
   if (!window.copyframeViewer?.chooseArchive) {

@@ -14,6 +14,8 @@ Extract the downloaded archive, open Copyframe Viewer, and select the unpacked o
 
 You can also drag the unpacked folder or its `index.html` directly into the Viewer window.
 
+Viewer displays its version on the start page and archive toolbar. Offline pages cannot silently open the system browser: clicking an external HTTP/HTTPS link first shows a confirmation with a redacted destination.
+
 ## Missing images or video
 
 Viewer stays offline by default. If an older package still has a missing image or video, click **加载缺失资源** in the top-right toolbar. This only lets the original website supply images and media for the current page; remote APIs, login, scripts, WebSocket, and event streams remain blocked. Click **恢复离线资源** at any time to return to strict offline mode.
@@ -38,4 +40,4 @@ The Copyframe browser extension privacy policy is available at [privacy/index.ht
 
 ## Develop
 
-`npm install`, then run `npm run viewer:dev`. Release maintainers can create a `v*` tag to build macOS and Windows artifacts automatically.
+`npm install`, then run `npm run viewer:dev`. Release maintainers can create a `v*` tag to run security checks and automatically build unsigned macOS and Windows artifacts. The GitHub Release is generated after both platform builds succeed.

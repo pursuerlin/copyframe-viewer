@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { externalUrlLabel, normalizeExternalUrl } from '../security.mjs';
 import { closeArchiveServer, createArchiveServer } from '../server.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -57,14 +58,13 @@ function createMainWindow() {
     }
   });
   mainWindow.once('ready-to-show', () => mainWindow?.show());
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
+  // Archive documents are untrusted local content. Programmatic navigation
+  // must never escape to the network; real user clicks are forwarded by the
+  // isolated preload world and confirmed through a dedicated IPC channel.
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (isViewerUrl(url)) return;
     event.preventDefault();
-    if (/^https?:/i.test(url)) void shell.openExternal(url);
   });
   mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
   mainWindow.on('closed', () => {
@@ -135,11 +135,11 @@ async function chooseArchive() {
 async function openArchive(input) {
   try {
     const selected = await resolveArchiveSelection(input);
-    await replaceArchiveServer(selected.root);
-    const page = relative(archive.root, selected.page).replaceAll('\\', '/');
+    const page = relative(selected.root, selected.page).replaceAll('\\', '/');
+    await replaceArchiveServer(selected.root, page);
     const window = createMainWindow();
     await window.loadURL(new URL(page, archive.url).href);
-    window.setTitle(`Copyframe Viewer — ${basename(selected.page)}`);
+    window.setTitle(`Copyframe Viewer v${app.getVersion()} — ${basename(selected.page)}`);
     window.show();
     window.focus();
     return { ok: true };
@@ -150,9 +150,13 @@ async function openArchive(input) {
   }
 }
 
-async function replaceArchiveServer(root) {
-  if (archive?.root === root && archive.server?.listening) return;
+async function replaceArchiveServer(root, entryPage = 'index.html') {
+  if (archive?.root === root && archive.server?.listening) {
+    archive.setEntryPath?.(entryPage);
+    return;
+  }
   const nextArchive = await createArchiveServer(root);
+  nextArchive.setEntryPath?.(entryPage);
   const previous = archive;
   archive = nextArchive;
   // The currently displayed archive can keep an HTTP connection alive. Do not
@@ -187,7 +191,7 @@ async function resolveArchiveSelection(input) {
 async function showWelcome(error = '') {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   await mainWindow.loadURL(`${welcomeUrl}${error ? `?error=${encodeURIComponent(error)}` : ''}`);
-  mainWindow.setTitle('Copyframe Viewer');
+  mainWindow.setTitle(`Copyframe Viewer v${app.getVersion()}`);
   mainWindow.show();
   mainWindow.focus();
 }
@@ -207,6 +211,39 @@ function isArchiveUrl(url) {
 function canControlViewer(event) {
   const senderUrl = event.senderFrame?.url || '';
   return senderUrl.startsWith(welcomeUrl) || isArchiveUrl(senderUrl);
+}
+
+function isWelcomeSender(event) {
+  return String(event.senderFrame?.url || '').startsWith(welcomeUrl);
+}
+
+function isArchiveSender(event) {
+  return isArchiveUrl(event.senderFrame?.url || '');
+}
+
+function viewerState() {
+  return {
+    version: app.getVersion(),
+    externalAssetsAllowed: Boolean(archive?.externalAssetsAllowed?.())
+  };
+}
+
+async function confirmExternalNavigation(value) {
+  const url = normalizeExternalUrl(value);
+  if (!url) return { ok: false, error: '只能打开有效的 HTTP 或 HTTPS 链接。' };
+  const result = await dialog.showMessageBox(createMainWindow(), {
+    type: 'question',
+    title: '要在浏览器中打开外部链接吗？',
+    message: '此链接会离开离线 Viewer，并通过系统默认浏览器访问网络。',
+    detail: externalUrlLabel(url),
+    buttons: ['打开链接', '取消'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  });
+  if (result.response !== 0) return { ok: false, cancelled: true };
+  await shell.openExternal(url);
+  return { ok: true };
 }
 
 function firstPathArgument(argumentsList) {
@@ -230,13 +267,36 @@ ipcMain.handle('copyframe-viewer:choose-archive', async (event) => {
 });
 
 ipcMain.handle('copyframe-viewer:open-dropped-file', async (event, filePath) => {
-  if (!canControlViewer(event)) return { ok: false, error: '此操作只能在 Copyframe Viewer 中使用。' };
+  if (!isWelcomeSender(event)) return { ok: false, error: '拖放打开只能从 Copyframe Viewer 开始页使用。' };
   if (typeof filePath !== 'string' || !filePath.trim()) return { ok: false, error: '没有读取到拖入的文件。请拖入解压后的文件夹或 index.html。' };
   return openArchive(filePath);
 });
 
 ipcMain.handle('copyframe-viewer:return-to-welcome', async (event) => {
-  if (!canControlViewer(event)) return { ok: false, error: '此操作只能在 Copyframe Viewer 中使用。' };
+  if (!isArchiveSender(event)) return { ok: false, error: '此操作只能在离线网页中使用。' };
   await returnToWelcome();
   return { ok: true };
+});
+
+ipcMain.handle('copyframe-viewer:get-app-info', async (event) => {
+  if (!isWelcomeSender(event)) return { ok: false, error: '应用信息只能从 Copyframe Viewer 开始页读取。' };
+  return { ok: true, version: app.getVersion() };
+});
+
+ipcMain.handle('copyframe-viewer:get-viewer-state', async (event) => {
+  if (!isArchiveSender(event)) return { ok: false, error: 'Viewer 状态只能从离线网页读取。' };
+  return { ok: true, ...viewerState() };
+});
+
+ipcMain.handle('copyframe-viewer:set-external-assets', async (event, enabled) => {
+  if (!isArchiveSender(event) || !archive?.setExternalAssetsAllowed) {
+    return { ok: false, error: '只能为当前离线网页切换缺失资源。' };
+  }
+  archive.setExternalAssetsAllowed(Boolean(enabled));
+  return { ok: true, ...viewerState() };
+});
+
+ipcMain.handle('copyframe-viewer:open-external-link', async (event, url) => {
+  if (!isArchiveSender(event)) return { ok: false, error: '外部链接只能从当前离线网页打开。' };
+  return confirmExternalNavigation(url);
 });
