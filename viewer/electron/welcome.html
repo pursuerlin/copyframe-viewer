@@ -13,7 +13,7 @@
       <section class="welcome-card" aria-labelledby="welcome-title">
         <span class="eyebrow">离线网页查看器</span>
         <h1 id="welcome-title">无需终端，直接打开<br />完整离线网页</h1>
-        <p>选择 Copyframe 导出 ZIP 解压后的文件夹，Viewer 会只在你的电脑上启动一个临时本地地址，让交互包、媒体和同源 iframe 都能正常加载。外部链接需要确认，缺失资源也只有点击工具栏后才会临时联网补载。</p>
+        <p>选择 Copyframe 导出 ZIP 解压后的文件夹，Viewer 会只在你的电脑上启动一个临时本地地址，让交互包、媒体和同源 iframe 正常加载。跨域 iframe 无法完全离线，只有点击“加载缺失资源（需联网）”后才会临时连接原网站恢复。</p>
         <button id="open-archive" type="button">打开离线网页</button>
         <p class="drop-hint" id="drop-hint">也可以把解压后的文件夹或 <code>index.html</code> 直接拖到此窗口。</p>
         <p class="error" id="error" role="alert" hidden></p>

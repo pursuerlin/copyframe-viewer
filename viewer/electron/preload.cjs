@@ -36,7 +36,7 @@ window.addEventListener('DOMContentLoaded', () => {
     button:hover { color:#fff; background:#6357dd; }
     button:focus-visible { outline:2px solid #8e84ff; outline-offset:2px; }
     button:disabled { opacity:.65; cursor:wait; }
-  </style><div class="bar"><span class="version" id="version" aria-label="Viewer 版本"></span><button id="assets" type="button" title="只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。">加载缺失资源</button><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
+  </style><div class="bar"><span class="version" id="version" aria-label="Viewer 版本"></span><button id="assets" type="button" title="需要联网：允许补载原网页的图片、视频和跨域 iframe；接口、登录和脚本仍保持离线限制。">加载缺失资源（需联网）</button><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
   const invoke = async (button, label, channel) => {
     button.disabled = true;
     const original = button.textContent;
@@ -55,10 +55,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const assetsButton = shadow.getElementById('assets');
   const updateAssetButton = (enabled) => {
     assetsButton.dataset.enabled = String(Boolean(enabled));
-    assetsButton.textContent = enabled ? '恢复离线资源' : '加载缺失资源';
+    assetsButton.textContent = enabled ? '恢复严格离线' : '加载缺失资源（需联网）';
     assetsButton.title = enabled
-      ? '停止从原网页补载图片和视频，恢复严格离线查看。'
-      : '只允许补载原网页的图片和视频；接口、登录和脚本仍保持离线限制。';
+      ? '停止从原网页补载图片、视频和跨域 iframe，恢复严格离线查看。'
+      : '允许补载原网页的图片、视频和跨域 iframe；接口、登录和脚本仍保持离线限制。';
   };
   const refreshViewerState = async () => {
     try {
