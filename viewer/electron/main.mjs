@@ -247,7 +247,17 @@ async function confirmExternalNavigation(value) {
 }
 
 function firstPathArgument(argumentsList) {
-  return argumentsList.slice(1).find((value) => !value.startsWith('-') && existsSync(value)) || '';
+  // Electron's argv layout differs between `electron main.mjs path` and a
+  // packaged app. In the former, the entry file can appear at argv[1] or
+  // argv[2]; in the latter it may not appear at all. Only accept existing
+  // paths that are not the Viewer executable/entry file, otherwise a launch
+  // with a folder silently opens main.mjs and falls back to the welcome page.
+  const entryFile = resolve(here, 'main.mjs');
+  const executable = resolve(process.execPath || '');
+  return argumentsList
+    .filter((value) => typeof value === 'string' && !value.startsWith('-'))
+    .map((value) => ({ value, path: resolve(value) }))
+    .find(({ path }) => path !== entryFile && path !== executable && existsSync(path))?.value || '';
 }
 
 function messageOf(error) {
