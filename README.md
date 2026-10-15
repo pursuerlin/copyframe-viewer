@@ -2,7 +2,7 @@
 
 Copyframe Viewer is a portable desktop app for opening Copyframe interactive and complete offline webpage packages. It starts a local-only service on your computer; users do not need Python, Node.js, or a server.
 
-Current release: **1.4.0**, kept in sync with Copyframe 1.4.0.
+Current release: **2.0.0**, kept in sync with Copyframe 2.0.0.
 
 ## Download
 

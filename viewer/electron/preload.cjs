@@ -30,12 +30,19 @@ window.addEventListener('DOMContentLoaded', () => {
   const shadow = host.attachShadow({ mode: 'closed' });
   shadow.innerHTML = `<style>
     :host { display:block !important; visibility:visible !important; opacity:1 !important; pointer-events:auto !important; }
-    .bar { display:flex; width:max-content; gap:6px; padding:5px; border:1px solid rgba(123,137,169,.32); border-radius:10px; background:rgba(255,255,255,.94); box-shadow:0 7px 22px rgba(29,42,69,.18); backdrop-filter:blur(8px); font:12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; pointer-events:auto; }
-    .version { align-self:center; padding:0 5px; color:#71809a; font:600 10px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; white-space:nowrap; }
-    button { appearance:none; border:0; border-radius:7px; padding:7px 9px; color:#41516e; background:transparent; font:inherit; font-weight:650; cursor:pointer; }
+    .bar { display:flex; width:max-content; gap:6px; padding:5px; border:1px solid rgba(123,137,169,.32); border-radius:10px; color:#263750; background:rgba(255,255,255,.94); box-shadow:0 7px 22px rgba(29,42,69,.18); backdrop-filter:blur(8px); font:400 12px/17px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; pointer-events:auto; }
+    .version { align-self:center; padding:0 5px; color:#53657d; font:600 11px/15px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; white-space:nowrap; }
+    button { appearance:none; border:0; border-radius:7px; padding:7px 9px; color:#41516e; background:transparent; font:inherit; font-weight:600; cursor:pointer; }
     button:hover { color:#fff; background:#6357dd; }
     button:focus-visible { outline:2px solid #8e84ff; outline-offset:2px; }
     button:disabled { opacity:.65; cursor:wait; }
+    @media (prefers-color-scheme:dark) {
+      .bar { color:#f5f8fd; border-color:#35465d; background:rgba(29,38,50,.96); box-shadow:0 7px 22px rgba(0,0,0,.42); }
+      .version { color:#d2dbe7; }
+      button { color:#d2dbe7; }
+      button:hover { color:#182231; background:#70a1ff; }
+      button:focus-visible { outline-color:#9ec1ff; }
+    }
   </style><div class="bar"><span class="version" id="version" aria-label="Viewer 版本"></span><button id="assets" type="button" title="需要联网：允许补载原网页的图片、视频和跨域 iframe；接口、登录和脚本仍保持离线限制。">加载缺失资源（需联网）</button><button id="home" type="button">返回选择</button><button id="open" type="button">打开其他网页</button></div>`;
   const invoke = async (button, label, channel) => {
     button.disabled = true;

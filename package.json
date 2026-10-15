@@ -1,6 +1,6 @@
 {
   "name": "copyframe-viewer",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "Portable local Viewer for Copyframe offline webpages.",
   "author": "Copyframe",
   "type": "module",
@@ -14,7 +14,12 @@
     "viewer:pack:win": "npm run viewer:pack -- --win portable --x64"
   },
   "devDependencies": {
-    "electron": "43.3.0",
+    "electron": "43.7.11",
     "electron-builder": "26.15.3"
+  },
+  "overrides": {
+    "@electron/get@3.1.0": {
+      "global-agent": "^4.1.3"
+    }
   }
 }
